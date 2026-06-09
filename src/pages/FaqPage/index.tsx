@@ -17,7 +17,7 @@ const FAQ_ITEMS = [
     key: '2',
     label: 'Preciso ler o documento inteiro antes de aceitar?',
     children:
-      'Recomendamos fortemente a leitura integral do documento antes de confirmar. A marcação de aceite fica disponível a qualquer momento — basta marcar "Li e aceito os termos" e confirmar.',
+      'Recomendamos fortemente a leitura integral do documento. A confirmação do aceite é habilitada assim que o documento é exibido na tela — depois basta marcar "Li e aceito os termos" e confirmar.',
   },
   {
     key: '3',

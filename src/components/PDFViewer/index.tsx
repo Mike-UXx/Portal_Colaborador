@@ -17,9 +17,11 @@ interface PDFViewerProps {
 }
 
 const MIN_SCALE = 0.6;
-const MAX_SCALE = 2.5;
+const MAX_SCALE = 3;
+const DOUBLE_TAP_SCALE = 2;
 const MAX_PAGE_WIDTH = 820;
 const VIEWER_BG = '#eceef1';
+const clamp = (v: number) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, v));
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
   url,
@@ -28,6 +30,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onTotalPages,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const pagesRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +39,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollCompleteRef = useRef(false);
-  const pinchRef = useRef<{ dist: number; scale: number } | null>(null);
+
+  // Mirror the latest scale into a ref so the (mount-only) gesture handlers read it.
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
 
   // Measure container → fit page width responsively
   useEffect(() => {
@@ -96,24 +102,110 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     return () => el.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
-  // Pinch-to-zoom (mobile)
-  const getTouchDist = (e: TouchEvent) =>
-    Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-
+  // Pinch-to-zoom + double-tap.
+  // Smooth approach: during the gesture we only apply a cheap CSS transform (60fps,
+  // GPU) to the pages wrapper; on release we commit the scale once so react-pdf
+  // re-rasterizes crisply. Zoom is anchored on the focal point (between the fingers
+  // / the tap), and the scroll position is adjusted so that point stays put.
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) pinchRef.current = { dist: getTouchDist(e), scale };
+    const pages = pagesRef.current;
+    if (!el || !pages) return;
+
+    let pinch: { startDist: number; startScale: number; originY: number; lastScale: number } | null = null;
+    let raf = 0;
+    let pendingTransform = '';
+    let pinchHappened = false;
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    const dist = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    const flush = () => {
+      raf = 0;
+      pages.style.transform = pendingTransform;
     };
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && pinchRef.current) {
-        e.preventDefault();
-        const ratio = getTouchDist(e) / pinchRef.current.dist;
-        setScale(Math.max(MIN_SCALE, Math.min(MAX_SCALE, pinchRef.current.scale * ratio)));
+
+    // Re-anchor scroll so the focal content point stays at the same screen position
+    const reanchor = (originY: number, startScale: number, finalScale: number) => {
+      const fy = originY - el.scrollTop;
+      requestAnimationFrame(() => {
+        el.scrollTop = (originY * finalScale) / startScale - fy;
+      });
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchHappened = true;
+        const rect = el.getBoundingClientRect();
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const originY = el.scrollTop + (midY - rect.top);
+        pinch = {
+          startDist: dist(e.touches),
+          startScale: scaleRef.current,
+          originY,
+          lastScale: scaleRef.current,
+        };
+        pages.style.transformOrigin = `50% ${originY}px`;
+        pages.style.willChange = 'transform';
       }
     };
-    const onTouchEnd = () => { pinchRef.current = null; };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinch) {
+        e.preventDefault();
+        const ratio = dist(e.touches) / pinch.startDist;
+        const target = clamp(pinch.startScale * ratio);
+        pinch.lastScale = target;
+        pendingTransform = `scale(${target / pinch.startScale})`;
+        if (!raf) raf = requestAnimationFrame(flush);
+      }
+    };
+
+    const commitPinch = () => {
+      if (!pinch) return;
+      const { originY, startScale, lastScale } = pinch;
+      pinch = null;
+      if (raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+      pages.style.transform = '';
+      pages.style.transformOrigin = '';
+      pages.style.willChange = '';
+      setScale(lastScale);
+      reanchor(originY, startScale, lastScale);
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      // A finger lifted mid-pinch → commit
+      if (pinch && e.touches.length < 2) {
+        commitPinch();
+        return;
+      }
+      // Double-tap to toggle zoom (single finger, no pinch during this sequence)
+      if (!pinchHappened && e.touches.length === 0 && e.changedTouches.length === 1) {
+        const t = e.changedTouches[0];
+        const now = Date.now();
+        if (now - lastTapTime < 300 && Math.hypot(t.clientX - lastTapX, t.clientY - lastTapY) < 30) {
+          const rect = el.getBoundingClientRect();
+          const originY = el.scrollTop + (t.clientY - rect.top);
+          const startScale = scaleRef.current;
+          const target = startScale > 1.2 ? 1 : DOUBLE_TAP_SCALE;
+          setScale(target);
+          reanchor(originY, startScale, target);
+          lastTapTime = 0;
+        } else {
+          lastTapTime = now;
+          lastTapX = t.clientX;
+          lastTapY = t.clientY;
+        }
+      }
+      if (e.touches.length === 0) pinchHappened = false;
+    };
+
     el.addEventListener('touchstart', onTouchStart, { passive: false });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd);
@@ -121,11 +213,11 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
+      if (raf) cancelAnimationFrame(raf);
     };
-  }, [scale]);
+  }, []);
 
-  const adjustZoom = (delta: number) =>
-    setScale(s => Math.max(MIN_SCALE, Math.min(MAX_SCALE, +(s + delta).toFixed(2))));
+  const adjustZoom = (delta: number) => setScale(s => clamp(+(s + delta).toFixed(2)));
   const resetZoom = () => setScale(1);
 
   return (
@@ -193,6 +285,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           overflowY: 'auto',
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
+          // Allow native panning; pinch & double-tap are handled by us.
+          touchAction: 'pan-x pan-y',
           padding: '20px 0 28px',
         }}
       >
@@ -207,35 +301,37 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           <Alert type="error" showIcon message="Erro ao carregar PDF" description={error} style={{ margin: 16 }} />
         )}
 
-        <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={e => { setError(e.message); setLoading(false); }} loading={null}>
-          {Array.from({ length: numPages }, (_, i) => (
-            <div
-              key={i}
-              ref={el => { pageRefs.current[i] = el; }}
-              data-page={i + 1}
-              style={{
-                width: baseWidth * scale,
-                margin: '0 auto 18px',
-                background: '#fff',
-                borderRadius: 3,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.12), 0 6px 16px rgba(0,0,0,0.10)',
-                overflow: 'hidden',
-              }}
-            >
-              <Page
-                pageNumber={i + 1}
-                width={baseWidth * scale}
-                renderTextLayer
-                renderAnnotationLayer
-                loading={
-                  <div style={{ height: (baseWidth * scale) * 1.414, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin />
-                  </div>
-                }
-              />
-            </div>
-          ))}
-        </Document>
+        <div ref={pagesRef} style={{ transformOrigin: '50% 0' }}>
+          <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={e => { setError(e.message); setLoading(false); }} loading={null}>
+            {Array.from({ length: numPages }, (_, i) => (
+              <div
+                key={i}
+                ref={el => { pageRefs.current[i] = el; }}
+                data-page={i + 1}
+                style={{
+                  width: baseWidth * scale,
+                  margin: '0 auto 18px',
+                  background: '#fff',
+                  borderRadius: 3,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.12), 0 6px 16px rgba(0,0,0,0.10)',
+                  overflow: 'hidden',
+                }}
+              >
+                <Page
+                  pageNumber={i + 1}
+                  width={baseWidth * scale}
+                  renderTextLayer
+                  renderAnnotationLayer
+                  loading={
+                    <div style={{ height: (baseWidth * scale) * 1.414, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Spin />
+                    </div>
+                  }
+                />
+              </div>
+            ))}
+          </Document>
+        </div>
       </div>
     </div>
   );

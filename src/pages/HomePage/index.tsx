@@ -19,6 +19,16 @@ const { Title, Text } = Typography;
 
 const HOME_DOC_LIMIT = 3;
 
+// Replaces the redundant "pendente" tag with useful deadline/urgency info.
+// (On the Home, every item in a "pendentes" section is already pending.)
+function deadlineChip(deadlineIso: string): React.ReactNode {
+  const days = dayjs(deadlineIso).startOf('day').diff(dayjs().startOf('day'), 'day');
+  if (days < 0) return <StatusTag preset="warning">Atrasado</StatusTag>;
+  if (days === 0) return <StatusTag preset="warning">Vence hoje</StatusTag>;
+  if (days <= 7) return <StatusTag preset="warning">{`Vence em ${days} ${days === 1 ? 'dia' : 'dias'}`}</StatusTag>;
+  return <StatusTag preset="neutral">{`Vence em ${days} dias`}</StatusTag>;
+}
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -76,7 +86,6 @@ export const HomePage: React.FC = () => {
           {visibleDocs.map((doc, i) => (
             <PendingRow
               key={doc.id}
-              tag={<StatusTag preset="warning">Aceite pendente</StatusTag>}
               title={doc.title}
               meta={`Recebido em: ${fmt(doc.createdAt)}`}
               actionLabel="Ler e aceitar"
@@ -95,7 +104,7 @@ export const HomePage: React.FC = () => {
           {pendingSurveys.map((s, i) => (
             <PendingRow
               key={s.id}
-              tag={<StatusTag preset="warning">Resposta pendente</StatusTag>}
+              tag={deadlineChip(s.deadline)}
               title={s.title}
               meta={`Prazo: ${fmt(s.deadline)}`}
               actionLabel="Responder"
@@ -114,7 +123,7 @@ export const HomePage: React.FC = () => {
           {pendingTrainings.map((t, i) => (
             <PendingRow
               key={t.id}
-              tag={<StatusTag preset="warning">Visualização pendente</StatusTag>}
+              tag={deadlineChip(t.deadline)}
               title={t.title}
               meta={`Prazo: ${fmt(t.deadline)}`}
               actionLabel="Assistir"
