@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Button, Checkbox, Result, App as AntApp } from 'antd';
-import { CheckCircleFilled, InfoCircleFilled, DownloadOutlined } from '@ant-design/icons';
+import { Typography, Button, Modal, Result, App as AntApp } from 'antd';
+import {
+  FilePdfOutlined,
+  RightOutlined,
+  CheckCircleFilled,
+  InfoCircleFilled,
+  DownloadOutlined,
+} from '@ant-design/icons';
 import { AppLayout } from '../../components/Layout/AppLayout';
 import { BackLink } from '../../components/BackLink';
 import { PDFViewer } from '../../components/PDFViewer';
@@ -46,11 +52,11 @@ export const DocumentViewerPage: React.FC = () => {
     id && currentUser ? getViewRecord(id, currentUser.id) : undefined
   );
 
-  const [checked, setChecked] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  // The document is now embedded inline — "opening" = it being presented on screen.
-  // The acceptance checkbox stays disabled until the document has loaded (#1-A).
-  const [docLoaded, setDocLoaded] = useState(false);
+  // Reading-completion gate (replaces the old checkbox): the user must open the
+  // document and click "Concluir leitura" before "Aceitar documento" enables.
+  const [readCompleted, setReadCompleted] = useState(false);
 
   // Register a visualization for informative documents once the page is shown.
   useEffect(() => {
@@ -78,6 +84,8 @@ export const DocumentViewerPage: React.FC = () => {
   // An active acceptance task locks header-logo navigation
   const isActiveTask = !isAccepted && !isInformative && !isExpired;
   const acceptedAt = existingRecord?.createdAt ?? document.createdAt;
+  // The file card shows a "success" look once the active reading was concluded
+  const cardDone = isActiveTask && readCompleted;
 
   const handleDownloadOriginal = () => {
     const link = window.document.createElement('a');
@@ -91,8 +99,13 @@ export const DocumentViewerPage: React.FC = () => {
     if (existingRecord) generateCertificatePDF(existingRecord);
   };
 
+  const concluirLeitura = () => {
+    setReadCompleted(true);
+    setPdfOpen(false);
+  };
+
   const doAccept = async () => {
-    if (!checked || !currentUser) return;
+    if (!readCompleted || !currentUser) return;
     setConfirming(true);
     try {
       const evidence = await collectEvidence(document.hash);
@@ -119,127 +132,104 @@ export const DocumentViewerPage: React.FC = () => {
 
   /* -------------------------------- Pieces -------------------------------- */
 
-  const header = (
-    <>
-      <BackLink />
-      <Title level={3} style={{ margin: '4px 0 2px', color: COLORS.primary, fontWeight: 600 }}>
-        {document.title}
-      </Title>
-      <Text type="secondary" style={{ fontSize: 14 }}>
-        Recebido em {dayjs(document.createdAt).format('DD/MM/YYYY')}
-      </Text>
-    </>
-  );
-
-  // Embedded document viewer (read inline — no modal)
-  const renderViewer = (height: React.CSSProperties['height']) => (
-    <div
+  // File card → opens the full-screen reader. Turns green once reading is concluded.
+  const fileCard = (
+    <button
+      onClick={() => setPdfOpen(true)}
       style={{
-        height,
-        minHeight: 340,
-        border: `1px solid ${COLORS.cardBorder}`,
+        width: '100%',
+        background: cardDone ? COLORS.successBg : COLORS.surface,
+        border: `1px solid ${cardDone ? COLORS.successBorder : COLORS.cardBorder}`,
         borderRadius: 10,
-        overflow: 'hidden',
-        background: '#fff',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        padding: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        textAlign: 'left',
+        cursor: 'pointer',
+        transition: 'border-color .15s, box-shadow .15s, background .15s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(38,48,114,0.08)';
+        if (!cardDone) e.currentTarget.style.borderColor = COLORS.blue3;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = 'none';
+        if (!cardDone) e.currentTarget.style.borderColor = COLORS.cardBorder;
       }}
     >
-      <PDFViewer url={document.pdfUrl} onTotalPages={n => { if (n > 0) setDocLoaded(true); }} />
-    </div>
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 8,
+          background: cardDone ? '#fff' : COLORS.blue1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {cardDone ? (
+          <CheckCircleFilled style={{ fontSize: 24, color: COLORS.success }} />
+        ) : (
+          <FilePdfOutlined style={{ fontSize: 22, color: COLORS.primary }} />
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Text strong style={{ fontSize: 14, color: COLORS.textHeading }} ellipsis>
+          {fileName(document.title)}
+        </Text>
+        <Text style={{ fontSize: 13, color: cardDone ? COLORS.success : COLORS.textSecondary }}>
+          {cardDone ? 'Leitura concluída · toque para reabrir' : 'Toque para abrir o documento'}
+        </Text>
+      </div>
+      <RightOutlined style={{ color: COLORS.textTertiary, fontSize: 14, flexShrink: 0 }} />
+    </button>
   );
 
-  const noticeBox = (
-    color: string,
-    bg: string,
-    border: string,
-    icon: React.ReactNode,
-    title: string,
-    subtitle: string
-  ) => (
-    <div
-      style={{
-        background: bg,
-        border: `1px solid ${border}`,
-        borderRadius: 8,
-        padding: '14px 16px',
-        display: 'flex',
-        gap: 12,
-        alignItems: 'flex-start',
-      }}
-    >
-      <span style={{ color, fontSize: 20, marginTop: 2, flexShrink: 0, display: 'inline-flex' }}>{icon}</span>
+  // Status notice boxes
+  const acceptedBox = (
+    <div style={{ background: COLORS.successBg, border: `1px solid ${COLORS.successBorder}`, borderRadius: 8, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <CheckCircleFilled style={{ color: COLORS.success, fontSize: 20, marginTop: 2, flexShrink: 0 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Text strong style={{ fontSize: 14, color: COLORS.textHeading }}>{title}</Text>
-        <Text type="secondary" style={{ fontSize: 13 }}>{subtitle}</Text>
+        <Text strong style={{ fontSize: 14, color: COLORS.textHeading }}>Você aceitou este documento</Text>
+        <Text type="secondary" style={{ fontSize: 13 }}>em {dayjs(acceptedAt).format('DD/MM/YYYY [às] HH:mm:ss')}</Text>
       </div>
     </div>
   );
 
-  const sidePanelBody = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {isAccepted &&
-        noticeBox(
-          COLORS.success, COLORS.successBg, COLORS.successBorder,
-          <CheckCircleFilled />, 'Você aceitou este documento',
-          `em ${dayjs(acceptedAt).format('DD/MM/YYYY [às] HH:mm:ss')}`
-        )}
-
-      {isInformative && previousView &&
-        noticeBox(
-          COLORS.info, COLORS.blue1, COLORS.blue3,
-          <InfoCircleFilled />, 'Você visualizou este documento',
-          `em ${dayjs(previousView.viewedAt).format('DD/MM/YYYY [às] HH:mm:ss')}`
-        )}
-
-      {isExpired && (
-        <div style={{ background: '#fafafa', border: '1px solid #d9d9d9', borderRadius: 8, padding: '14px 16px' }}>
-          <Text type="secondary">Este documento expirou e não está mais disponível para aceite.</Text>
-        </div>
-      )}
-
-      {isActiveTask && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            Recomendamos a leitura integral do documento antes de confirmar o aceite.
-          </Text>
-          <Checkbox
-            checked={checked}
-            disabled={!docLoaded}
-            onChange={e => setChecked(e.target.checked)}
-            style={{ alignItems: 'flex-start' }}
-          >
-            <Text style={{ fontSize: 14, color: docLoaded ? COLORS.textHeading : COLORS.textDisabled }}>
-              Li e aceito os termos, condições e diretrizes descritos no documento apresentado
-            </Text>
-          </Checkbox>
-          {!docLoaded && (
-            <Text style={{ fontSize: 12, color: COLORS.textTertiary }}>
-              O aceite será habilitado assim que o documento for exibido.
-            </Text>
-          )}
-        </div>
-      )}
+  const viewedBox = (
+    <div style={{ background: COLORS.blue1, border: `1px solid ${COLORS.blue3}`, borderRadius: 8, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <InfoCircleFilled style={{ color: COLORS.info, fontSize: 20, marginTop: 2, flexShrink: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Text strong style={{ fontSize: 14, color: COLORS.textHeading }}>Você visualizou este documento</Text>
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          em {previousView ? dayjs(previousView.viewedAt).format('DD/MM/YYYY [às] HH:mm:ss') : ''}
+        </Text>
+      </div>
     </div>
   );
 
+  // Action buttons + helper text per state
   let actions: React.ReactNode = null;
   if (isAccepted) {
     actions = (
-      <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Button type="primary" block size="large" icon={<DownloadOutlined />} onClick={handleDownloadCertificate} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
           Baixar comprovante (PDF)
         </Button>
         <Button block size="large" onClick={() => navigate(-1)} style={{ minHeight: 48, borderRadius: 8 }}>Voltar</Button>
-      </>
+      </div>
     );
   } else if (isInformative) {
     actions = (
-      <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Button type="primary" block size="large" icon={<DownloadOutlined />} onClick={handleDownloadOriginal} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
           Baixar documento (PDF)
         </Button>
         <Button block size="large" onClick={() => navigate(-1)} style={{ minHeight: 48, borderRadius: 8 }}>Voltar</Button>
-      </>
+      </div>
     );
   } else if (isExpired) {
     actions = (
@@ -247,61 +237,93 @@ export const DocumentViewerPage: React.FC = () => {
     );
   } else {
     actions = (
-      <>
-        <Button type="primary" block size="large" disabled={!checked} loading={confirming} onClick={doAccept} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
-          Confirmar
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Button type="primary" block size="large" disabled={!readCompleted} loading={confirming} onClick={doAccept} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
+          Aceitar documento
         </Button>
+        <Text style={{ fontSize: 12, color: COLORS.textTertiary, lineHeight: 1.5 }}>
+          {readCompleted
+            ? 'Ao aceitar, você declara que leu e concorda com os termos, condições e diretrizes descritos no documento.'
+            : 'Abra o documento e clique em "Concluir leitura" para habilitar o aceite.'}
+        </Text>
         <Button block size="large" onClick={() => navigate(-1)} disabled={confirming} style={{ minHeight: 48, borderRadius: 8 }}>Cancelar</Button>
-      </>
+      </div>
     );
   }
 
-  /* -------------------------- Desktop (two columns) ------------------------- */
-  if (!isCompact) {
-    return (
-      <AppLayout disableLogoNav={isActiveTask}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>{header}</div>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>{renderViewer('calc(100vh - 232px)')}</div>
-            <aside style={{ width: 372, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {sidePanelBody}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{actions}</div>
-            </aside>
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  /* ----------------------- Mobile / tablet (stacked) ------------------------ */
   return (
     <AppLayout disableLogoNav={isActiveTask}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: actions ? 140 : 16 }}>
-        <div>{header}</div>
-        {renderViewer('58vh')}
-        {sidePanelBody}
+      <div style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <BackLink />
+          <Title level={3} style={{ margin: '4px 0 2px', color: COLORS.primary, fontWeight: 600 }}>
+            {document.title}
+          </Title>
+          <Text type="secondary" style={{ fontSize: 14 }}>
+            Recebido em {dayjs(document.createdAt).format('DD/MM/YYYY')}
+          </Text>
+        </div>
+
+        {fileCard}
+
+        {isAccepted && acceptedBox}
+        {isInformative && previousView && viewedBox}
+        {isExpired && (
+          <div style={{ background: '#fafafa', border: '1px solid #d9d9d9', borderRadius: 8, padding: '14px 16px' }}>
+            <Text type="secondary">Este documento expirou e não está mais disponível para aceite.</Text>
+          </div>
+        )}
+
+        {actions}
       </div>
 
-      {/* Sticky action bar */}
-      {actions && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: COLORS.surface,
-            borderTop: `1px solid ${COLORS.cardBorder}`,
-            padding: '12px 16px',
-            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-            boxShadow: '0 -4px 12px rgba(0,0,0,0.06)',
-            zIndex: 150,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{actions}</div>
+      {/* Full-screen reader (overlay) */}
+      <Modal
+        open={pdfOpen}
+        onCancel={() => setPdfOpen(false)}
+        footer={null}
+        title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <FilePdfOutlined style={{ color: COLORS.primary }} />
+            <span style={{ fontWeight: 600 }}>{document.title}</span>
+          </span>
+        }
+        width={isCompact ? '100%' : 920}
+        style={isCompact ? { top: 0, maxWidth: '100%', margin: 0, padding: 0 } : { top: 20 }}
+        styles={{ body: { padding: 0 } }}
+        destroyOnHidden
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', height: isCompact ? 'calc(100dvh - 108px)' : '82vh' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <PDFViewer url={document.pdfUrl} />
+          </div>
+          <div
+            style={{
+              padding: '10px 16px',
+              borderTop: `1px solid ${COLORS.cardBorder}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              flexShrink: 0,
+              background: COLORS.surface,
+            }}
+          >
+            <Button type="text" icon={<DownloadOutlined />} onClick={handleDownloadOriginal} style={{ color: COLORS.textSecondary }}>
+              {isCompact ? 'Baixar' : 'Baixar PDF'}
+            </Button>
+            {isActiveTask ? (
+              <Button type="primary" onClick={concluirLeitura} style={{ borderRadius: 8, minHeight: 40, fontWeight: 600 }}>
+                Concluir leitura
+              </Button>
+            ) : (
+              <Button type="primary" onClick={() => setPdfOpen(false)} style={{ borderRadius: 8, minHeight: 40, fontWeight: 600 }}>
+                Fechar
+              </Button>
+            )}
+          </div>
         </div>
-      )}
+      </Modal>
     </AppLayout>
   );
 };
