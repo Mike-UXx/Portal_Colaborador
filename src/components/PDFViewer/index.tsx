@@ -7,7 +7,7 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { COLORS } from '../../theme/tokens';
 
 // Use local worker (copied to public/ at build time) — no CDN dependency
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.mjs`;
 
 interface PDFViewerProps {
   url: string;
@@ -204,7 +204,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         )}
 
         {error && (
-          <Alert type="error" showIcon title="Erro ao carregar PDF" description={error} style={{ margin: 16 }} />
+          <Alert type="error" showIcon message="Erro ao carregar PDF" description={error} style={{ margin: 16 }} />
         )}
 
         <Document file={url} onLoadSuccess={onDocumentLoadSuccess} onLoadError={e => { setError(e.message); setLoading(false); }} loading={null}>

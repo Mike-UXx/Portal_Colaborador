@@ -8,8 +8,8 @@ interface LogoProps {
 }
 
 const SRC: Record<NonNullable<LogoProps['variant']>, string> = {
-  color: '/logo-contato-seguro.png',
-  white: '/logo-contato-seguro-branco.png',
+  color: `${import.meta.env.BASE_URL}logo-contato-seguro.png`,
+  white: `${import.meta.env.BASE_URL}logo-contato-seguro-branco.png`,
 };
 
 /** Official Contato Seguro — Canal de Denúncias logo lockup. */

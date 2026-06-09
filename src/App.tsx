@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
 import ptBR from 'antd/locale/pt_BR';
 import { LoginPage } from './pages/LoginPage';
@@ -83,9 +83,9 @@ function App() {
   return (
     <ConfigProvider theme={THEME} locale={ptBR}>
       <AntApp>
-        <BrowserRouter>
+        <HashRouter>
           <AppRouter />
-        </BrowserRouter>
+        </HashRouter>
       </AntApp>
     </ConfigProvider>
   );

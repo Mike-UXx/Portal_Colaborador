@@ -8,8 +8,8 @@ import { COLORS } from '../../theme/tokens';
 
 const { Title } = Typography;
 
-const HERO_DESKTOP = '/login-hero-desktop.jpg';
-const HERO_MOBILE = '/login-hero-mobile.jpg';
+const HERO_DESKTOP = `${import.meta.env.BASE_URL}login-hero-desktop.jpg`;
+const HERO_MOBILE = `${import.meta.env.BASE_URL}login-hero-mobile.jpg`;
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();

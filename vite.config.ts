@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+// GitHub Pages serves this project at https://<user>.github.io/Portal_Colaborador/
+// so the production build needs that sub-path as its base. Local dev stays at "/".
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/Portal_Colaborador/' : '/',
   plugins: [react()],
   server: {
     port: 3000,
@@ -14,11 +17,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          pdfjs: ['pdfjs-dist'],
-          antd: ['antd', '@ant-design/icons'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('pdfjs-dist')) return 'pdfjs';
+            if (id.includes('antd') || id.includes('@ant-design')) return 'antd';
+          }
         },
       },
     },
   },
-});
+}));

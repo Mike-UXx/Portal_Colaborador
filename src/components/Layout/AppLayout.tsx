@@ -105,9 +105,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, disableLogoNav =
   );
 
   // Match the most specific nav key (so /documentos/:id keeps "Documentos" active)
+  const navKeys = NAV_ITEMS
+    .map(i => ('key' in i ? i.key : undefined))
+    .filter((k): k is string => typeof k === 'string');
   const selectedKey =
-    NAV_ITEMS.filter((i): i is { key: string; icon: React.ReactNode; label: string } => 'key' in i)
-      .map(i => i.key)
+    navKeys
       .filter(k => location.pathname.startsWith(k))
       .sort((a, b) => b.length - a.length)[0] ?? '/home';
 
