@@ -1,9 +1,139 @@
 import React from 'react';
 import { Typography } from 'antd';
-import { RightOutlined } from '@ant-design/icons';
+import { RightOutlined, CloseOutlined } from '@ant-design/icons';
 import { COLORS } from '../../theme/tokens';
 
 const { Text } = Typography;
+
+/* ----------------------------- Home banner ----------------------------- */
+interface HomeBannerProps {
+  /** 'welcome' = light hero with hand-waving icon; 'announcement' = light card with "Novidade" pill */
+  kind: 'welcome' | 'announcement';
+  /** Announcement icon (welcome uses the built-in hand-waving icon). */
+  icon?: React.ReactNode;
+  title: string;
+  body: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+  onDismiss: () => void;
+}
+
+// Welcome banner palette (brand blues).
+const WELCOME_BG = COLORS.blue1;          // #E8F6FD
+const WELCOME_BORDER = COLORS.blue3;      // #9DBFEA
+const WELCOME_CHIP = COLORS.blue2;        // #D4ECFB
+const WELCOME_BODY = COLORS.textSecondary; // rgba(0,0,0,0.65)
+
+export const HomeBanner: React.FC<HomeBannerProps> = ({ kind, icon, title, body, ctaLabel, onCta, onDismiss }) => {
+  const isWelcome = kind === 'welcome';
+  return (
+    <section
+      style={{
+        position: 'relative',
+        background: isWelcome ? WELCOME_BG : COLORS.blue1,
+        border: `1px solid ${isWelcome ? WELCOME_BORDER : COLORS.blue3}`,
+        borderRadius: 12,
+        padding: '16px 18px',
+        display: 'flex',
+        gap: 14,
+        alignItems: 'flex-start',
+      }}
+    >
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: 12,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 22,
+          background: isWelcome ? WELCOME_CHIP : COLORS.surface,
+          border: isWelcome ? 'none' : `1px solid ${COLORS.blue3}`,
+          color: COLORS.primary,
+        }}
+      >
+        {isWelcome ? (
+          <img
+            src={`${import.meta.env.BASE_URL}hand-waving.png`}
+            alt=""
+            width={28}
+            height={28}
+            style={{ display: 'block' }}
+          />
+        ) : (
+          icon
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, paddingRight: 24 }}>
+        {!isWelcome && (
+          <span
+            style={{
+              display: 'inline-block',
+              background: COLORS.primary,
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 500,
+              padding: '2px 9px',
+              borderRadius: 20,
+              marginBottom: 7,
+            }}
+          >
+            Novidade
+          </span>
+        )}
+        <div style={{ color: COLORS.primary, fontSize: isWelcome ? 16 : 15, fontWeight: 600, marginBottom: 4 }}>
+          {title}
+        </div>
+        <div style={{ color: isWelcome ? WELCOME_BODY : COLORS.textSecondary, fontSize: isWelcome ? 14 : 13, lineHeight: 1.6 }}>
+          {body}
+        </div>
+        {ctaLabel && (
+          <button
+            onClick={onCta}
+            style={{
+              marginTop: 9,
+              background: 'none',
+              border: 'none',
+              color: COLORS.primary,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            {ctaLabel} <RightOutlined style={{ fontSize: 12 }} />
+          </button>
+        )}
+      </div>
+
+      <button
+        onClick={onDismiss}
+        aria-label="Fechar"
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 6,
+          borderRadius: 8,
+          lineHeight: 1,
+          fontSize: 15,
+          color: COLORS.textTertiary,
+        }}
+      >
+        <CloseOutlined />
+      </button>
+    </section>
+  );
+};
 
 /* ----------------------------- Count tag ----------------------------- */
 export const CountTag: React.FC<{ count: number }> = ({ count }) => (

@@ -10,10 +10,14 @@ interface UserState {
   displayName: string | null;
   /** Whether the user has passed the login screen. */
   loginComplete: boolean;
+  /** Ids of Home banners (welcome / announcements) the user has dismissed. Persisted. */
+  dismissedBanners: string[];
 
   login: (userId: string) => void;
   /** Finish login. Pass a name to personalize the greeting, or null/empty to skip. */
   completeLogin: (name?: string | null) => void;
+  /** Permanently dismiss a Home banner by id (does not reappear, even after logout). */
+  dismissBanner: (id: string) => void;
   reset: () => void;
 }
 
@@ -23,6 +27,7 @@ export const useUserStore = create<UserState>()(
       currentUser: null,
       displayName: null,
       loginComplete: false,
+      dismissedBanners: [],
 
       login: (userId) => {
         const user = MOCK_USERS.find(u => u.id === userId) ?? MOCK_USERS[0];
@@ -34,6 +39,11 @@ export const useUserStore = create<UserState>()(
         set({ displayName: trimmed, loginComplete: true });
       },
 
+      dismissBanner: (id) =>
+        set(state => (state.dismissedBanners.includes(id) ? {} : { dismissedBanners: [...state.dismissedBanners, id] })),
+
+      // Note: dismissedBanners is intentionally NOT cleared — a dismissed welcome/announcement
+      // stays dismissed across logout/login ("nunca após fechar").
       reset: () => set({ currentUser: null, displayName: null, loginComplete: false }),
     }),
     { name: 'portal-user-store' }

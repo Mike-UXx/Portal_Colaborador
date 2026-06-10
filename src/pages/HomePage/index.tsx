@@ -3,7 +3,7 @@ import { Typography, App as AntApp } from 'antd';
 import { FileTextOutlined, FormOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../../components/Layout/AppLayout';
-import { SectionCard, PendingRow, StatusTag, VerMaisFooter, ShortcutCard } from '../../components/home';
+import { SectionCard, PendingRow, StatusTag, VerMaisFooter, ShortcutCard, HomeBanner } from '../../components/home';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { useDocumentStore } from '../../store/documentStore';
 import { useUserStore } from '../../store/userStore';
@@ -18,6 +18,21 @@ dayjs.locale('pt-br');
 const { Title, Text } = Typography;
 
 const HOME_DOC_LIMIT = 3;
+
+// Announcements shown on the Home (newest last). Each has a stable id — to launch a
+// new one, add an entry with a NEW id and it reappears for everyone (even who dismissed
+// previous ones). Dismissed ids are remembered per user (see userStore.dismissedBanners).
+interface Announcement {
+  id: string;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  ctaLabel?: string;
+  ctaTo?: string;
+}
+// No active announcements for now — only the welcome banner is shown.
+// To launch one, add an entry with a NEW id and it appears for everyone.
+const ANNOUNCEMENTS: Announcement[] = [];
 
 // Replaces the redundant "pendente" tag with useful, color-coded urgency info.
 // (On the Home, every item in a "pendentes" section is already pending.)
@@ -39,11 +54,41 @@ export const HomePage: React.FC = () => {
   const { message } = AntApp.useApp();
   const { isDesktop } = useBreakpoint();
   const displayName = useUserStore(s => s.displayName);
+  const dismissedBanners = useUserStore(s => s.dismissedBanners);
+  const dismissBanner = useUserStore(s => s.dismissBanner);
   const documents = useDocumentStore(s => s.documents);
   const viewRecords = useDocumentStore(s => s.viewRecords);
   const setFilter = useDocumentStore(s => s.setFilter);
 
   const futureFlow = () => message.info('Este fluxo será criado em uma versão futura.');
+
+  // One banner at a time: welcome on first access, then the latest non-dismissed announcement.
+  let banner: React.ReactNode = null;
+  if (!dismissedBanners.includes('welcome')) {
+    banner = (
+      <HomeBanner
+        kind="welcome"
+        title="Bem-vindo ao seu Portal!"
+        body="Assine documentos com validade jurídica, responda pesquisas e faça seus treinamentos em um só lugar."
+        onDismiss={() => dismissBanner('welcome')}
+      />
+    );
+  } else {
+    const ann = [...ANNOUNCEMENTS].reverse().find(a => !dismissedBanners.includes(a.id));
+    if (ann) {
+      banner = (
+        <HomeBanner
+          kind="announcement"
+          icon={ann.icon}
+          title={ann.title}
+          body={ann.body}
+          ctaLabel={ann.ctaLabel}
+          onCta={ann.ctaTo ? () => navigate(ann.ctaTo!) : undefined}
+          onDismiss={() => dismissBanner(ann.id)}
+        />
+      );
+    }
+  }
 
   // Open the Documents page already filtered (the "Ver mais" of pendentes → only Pendentes).
   const openDocuments = (status: 'all' | 'pending') => {
@@ -76,6 +121,9 @@ export const HomePage: React.FC = () => {
             Último login: {dayjs().subtract(1, 'day').format('DD/MM/YYYY HH:mm')}
           </Text>
         </div>
+
+        {/* Welcome / announcement banner (dismissible) */}
+        {banner}
 
         {/* Documentos pendentes */}
         <SectionCard
