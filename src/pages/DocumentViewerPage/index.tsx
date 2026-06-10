@@ -17,7 +17,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { collectEvidence } from '../../utils/evidence';
 import { generateRecordId } from '../../utils/hash';
 import { generateCertificatePDF } from '../../utils/certificate';
-import { COLORS } from '../../theme/tokens';
+import { COLORS, SIDEBAR_WIDTH } from '../../theme/tokens';
 import type { AcceptanceRecord } from '../../types';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
@@ -257,7 +257,7 @@ export const DocumentViewerPage: React.FC = () => {
 
   return (
     <AppLayout disableLogoNav={isActiveTask}>
-      <div style={{ maxWidth: 720, margin: '0 auto', paddingBottom: 120, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ width: '100%', paddingBottom: 120, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <BackLink />
           <Title level={3} style={{ margin: '4px 0 2px', color: COLORS.primary, fontWeight: 600 }}>
@@ -287,17 +287,17 @@ export const DocumentViewerPage: React.FC = () => {
           style={{
             position: 'fixed',
             bottom: 0,
-            left: 0,
+            left: isCompact ? 0 : SIDEBAR_WIDTH,
             right: 0,
             background: COLORS.surface,
             borderTop: `1px solid ${COLORS.cardBorder}`,
-            padding: isCompact ? '12px 16px' : '12px 24px',
+            padding: isCompact ? '12px 16px' : '12px 32px',
             paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
             boxShadow: '0 -4px 12px rgba(0,0,0,0.06)',
             zIndex: 150,
           }}
         >
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {footerActions}
           </div>
         </div>
