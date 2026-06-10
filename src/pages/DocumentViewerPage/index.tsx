@@ -211,49 +211,53 @@ export const DocumentViewerPage: React.FC = () => {
     </div>
   );
 
-  // Action buttons + helper text per state
-  let actions: React.ReactNode = null;
+  // Sticky bottom action bar — buttons only (helper text sits below the card)
+  let footerActions: React.ReactNode = null;
   if (isAccepted) {
-    actions = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    footerActions = (
+      <>
         <Button type="primary" block size="large" icon={<DownloadOutlined />} onClick={handleDownloadCertificate} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
           Baixar comprovante (PDF)
         </Button>
         <Button block size="large" onClick={() => navigate(-1)} style={{ minHeight: 48, borderRadius: 8 }}>Voltar</Button>
-      </div>
+      </>
     );
   } else if (isInformative) {
-    actions = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    footerActions = (
+      <>
         <Button type="primary" block size="large" icon={<DownloadOutlined />} onClick={handleDownloadOriginal} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
           Baixar documento (PDF)
         </Button>
         <Button block size="large" onClick={() => navigate(-1)} style={{ minHeight: 48, borderRadius: 8 }}>Voltar</Button>
-      </div>
+      </>
     );
   } else if (isExpired) {
-    actions = (
+    footerActions = (
       <Button block size="large" onClick={() => navigate(-1)} style={{ minHeight: 48, borderRadius: 8 }}>Voltar</Button>
     );
   } else {
-    actions = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    footerActions = (
+      <>
         <Button type="primary" block size="large" disabled={!readCompleted} loading={confirming} onClick={doAccept} style={{ minHeight: 48, borderRadius: 8, fontWeight: 600 }}>
           Aceitar documento
         </Button>
-        <Text style={{ fontSize: 12, color: COLORS.textTertiary, lineHeight: 1.5 }}>
-          {readCompleted
-            ? 'Ao aceitar, você declara que leu e concorda com os termos, condições e diretrizes descritos no documento.'
-            : 'Abra o documento e clique em "Concluir leitura" para habilitar o aceite.'}
-        </Text>
         <Button block size="large" onClick={() => navigate(-1)} disabled={confirming} style={{ minHeight: 48, borderRadius: 8 }}>Cancelar</Button>
-      </div>
+      </>
     );
   }
 
+  // Helper/declaration text shown directly below the document card (active task only)
+  const belowCardText = isActiveTask ? (
+    <Text style={{ fontSize: 13, color: COLORS.textTertiary, lineHeight: 1.5 }}>
+      {readCompleted
+        ? 'Ao aceitar, você declara que leu e concorda com os termos, condições e diretrizes descritos no documento.'
+        : 'Abra o documento e clique em "Concluir leitura" para habilitar o aceite.'}
+    </Text>
+  ) : null;
+
   return (
     <AppLayout disableLogoNav={isActiveTask}>
-      <div style={{ maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', paddingBottom: 120, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <BackLink />
           <Title level={3} style={{ margin: '4px 0 2px', color: COLORS.primary, fontWeight: 600 }}>
@@ -266,6 +270,8 @@ export const DocumentViewerPage: React.FC = () => {
 
         {fileCard}
 
+        {belowCardText}
+
         {isAccepted && acceptedBox}
         {isInformative && previousView && viewedBox}
         {isExpired && (
@@ -273,9 +279,29 @@ export const DocumentViewerPage: React.FC = () => {
             <Text type="secondary">Este documento expirou e não está mais disponível para aceite.</Text>
           </div>
         )}
-
-        {actions}
       </div>
+
+      {/* Sticky action bar (botões no rodapé, como no formato original) */}
+      {footerActions && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: COLORS.surface,
+            borderTop: `1px solid ${COLORS.cardBorder}`,
+            padding: isCompact ? '12px 16px' : '12px 24px',
+            paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+            boxShadow: '0 -4px 12px rgba(0,0,0,0.06)',
+            zIndex: 150,
+          }}
+        >
+          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {footerActions}
+          </div>
+        </div>
+      )}
 
       {/* Full-screen reader (overlay) */}
       <Modal
