@@ -19,14 +19,19 @@ const { Title, Text } = Typography;
 
 const HOME_DOC_LIMIT = 3;
 
-// Replaces the redundant "pendente" tag with useful deadline/urgency info.
+// Replaces the redundant "pendente" tag with useful, color-coded urgency info.
 // (On the Home, every item in a "pendentes" section is already pending.)
+//   🔴 vermelho: vence hoje/atrasado ou em ≤ 2 dias
+//   🟡 amarelo:  3–7 dias
+//   🔵 azul:     8+ dias
 function deadlineChip(deadlineIso: string): React.ReactNode {
   const days = dayjs(deadlineIso).startOf('day').diff(dayjs().startOf('day'), 'day');
-  if (days < 0) return <StatusTag preset="warning">Atrasado</StatusTag>;
-  if (days === 0) return <StatusTag preset="warning">Vence hoje</StatusTag>;
-  if (days <= 7) return <StatusTag preset="warning">{`Vence em ${days} ${days === 1 ? 'dia' : 'dias'}`}</StatusTag>;
-  return <StatusTag preset="neutral">{`Vence em ${days} dias`}</StatusTag>;
+  if (days < 0) return <StatusTag preset="danger">Atrasado</StatusTag>;
+  if (days === 0) return <StatusTag preset="danger">Vence hoje</StatusTag>;
+  const label = `Vence em ${days} ${days === 1 ? 'dia' : 'dias'}`;
+  if (days <= 2) return <StatusTag preset="danger">{label}</StatusTag>;
+  if (days <= 7) return <StatusTag preset="warning">{label}</StatusTag>;
+  return <StatusTag preset="info">{label}</StatusTag>;
 }
 
 export const HomePage: React.FC = () => {

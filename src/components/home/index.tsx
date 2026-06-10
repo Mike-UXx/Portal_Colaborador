@@ -26,13 +26,14 @@ export const CountTag: React.FC<{ count: number }> = ({ count }) => (
 );
 
 /* ----------------------------- Status tag ----------------------------- */
-type StatusPreset = 'warning' | 'info' | 'success' | 'neutral';
+type StatusPreset = 'warning' | 'info' | 'success' | 'neutral' | 'danger';
 
 const STATUS_STYLES: Record<StatusPreset, React.CSSProperties> = {
   warning: { background: COLORS.warningBg, border: `1px solid ${COLORS.warningBorder}`, color: COLORS.warning },
   info: { background: COLORS.blue1, border: `1px solid ${COLORS.blue3}`, color: COLORS.blue6 },
   success: { background: COLORS.successBg, border: `1px solid ${COLORS.successBorder}`, color: COLORS.success },
   neutral: { background: '#fafafa', border: '1px solid #d9d9d9', color: COLORS.textSecondary },
+  danger: { background: '#fff1f0', border: '1px solid #ffccc7', color: '#cf1322' },
 };
 
 export const StatusTag: React.FC<{ preset: StatusPreset; children: React.ReactNode }> = ({ preset, children }) => (

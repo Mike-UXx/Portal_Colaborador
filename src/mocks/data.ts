@@ -274,14 +274,14 @@ export const MOCK_SURVEYS: Survey[] = [
   {
     id: 'srv-001',
     title: 'Pesquisa de clima 2025',
-    deadline: daysAhead(11),
+    deadline: daysAhead(1),
     status: 'pending',
     estimatedMinutes: 10,
   },
   {
     id: 'srv-002',
     title: 'Equipe & Liderança',
-    deadline: daysAhead(11),
+    deadline: daysAhead(5),
     status: 'pending',
     estimatedMinutes: 8,
   },
@@ -298,7 +298,7 @@ export const MOCK_TRAININGS: Training[] = [
   {
     id: 'trn-002',
     title: 'Treinamento de Compliance',
-    deadline: daysAhead(11),
+    deadline: daysAhead(2),
     status: 'pending',
     durationMinutes: 40,
   },
