@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Button, Modal, Result, App as AntApp } from 'antd';
 import {
@@ -57,14 +57,9 @@ export const DocumentViewerPage: React.FC = () => {
   // Reading-completion gate (replaces the old checkbox): the user must open the
   // document and click "Concluir leitura" before "Aceitar documento" enables.
   const [readCompleted, setReadCompleted] = useState(false);
-
-  // Register a visualization for informative documents once the page is shown.
-  useEffect(() => {
-    if (document && document.status === 'informative' && currentUser) {
-      recordView(document.id, currentUser.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [document?.id]);
+  // For informative docs the view is recorded only when the document is actually
+  // opened (not on page load). Holds this session's view timestamp, if any.
+  const [sessionViewedAt, setSessionViewedAt] = useState<string | null>(null);
 
   if (!document) {
     return (
@@ -86,6 +81,9 @@ export const DocumentViewerPage: React.FC = () => {
   const acceptedAt = existingRecord?.createdAt ?? document.createdAt;
   // The file card shows a "success" look once the active reading was concluded
   const cardDone = isActiveTask && readCompleted;
+  // Informative "visualizado" timestamp: this session's view (after opening),
+  // otherwise a prior visit. The notice only appears once the doc has been opened.
+  const informativeViewedAt = isInformative ? (sessionViewedAt ?? previousView?.viewedAt ?? null) : null;
 
   const handleDownloadOriginal = () => {
     const link = window.document.createElement('a');
@@ -97,6 +95,15 @@ export const DocumentViewerPage: React.FC = () => {
 
   const handleDownloadCertificate = () => {
     if (existingRecord) generateCertificatePDF(existingRecord);
+  };
+
+  const openDocument = () => {
+    setPdfOpen(true);
+    // Informative docs become "visualizado" only when actually opened.
+    if (isInformative && currentUser) {
+      recordView(document.id, currentUser.id);
+      setSessionViewedAt(new Date().toISOString());
+    }
   };
 
   const concluirLeitura = () => {
@@ -135,7 +142,7 @@ export const DocumentViewerPage: React.FC = () => {
   // File card → opens the full-screen reader. Turns green once reading is concluded.
   const fileCard = (
     <button
-      onClick={() => setPdfOpen(true)}
+      onClick={openDocument}
       style={{
         width: '100%',
         background: cardDone ? COLORS.successBg : COLORS.surface,
@@ -205,7 +212,7 @@ export const DocumentViewerPage: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Text strong style={{ fontSize: 14, color: COLORS.textHeading }}>Você visualizou este documento</Text>
         <Text type="secondary" style={{ fontSize: 13 }}>
-          em {previousView ? dayjs(previousView.viewedAt).format('DD/MM/YYYY [às] HH:mm:ss') : ''}
+          em {informativeViewedAt ? dayjs(informativeViewedAt).format('DD/MM/YYYY [às] HH:mm:ss') : ''}
         </Text>
       </div>
     </div>
@@ -273,7 +280,7 @@ export const DocumentViewerPage: React.FC = () => {
         {belowCardText}
 
         {isAccepted && acceptedBox}
-        {isInformative && previousView && viewedBox}
+        {isInformative && informativeViewedAt && viewedBox}
         {isExpired && (
           <div style={{ background: '#fafafa', border: '1px solid #d9d9d9', borderRadius: 8, padding: '14px 16px' }}>
             <Text type="secondary">Este documento expirou e não está mais disponível para aceite.</Text>
