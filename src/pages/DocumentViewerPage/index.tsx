@@ -130,8 +130,7 @@ export const DocumentViewerPage: React.FC = () => {
       };
       recordAcceptance(record);
       markDocumentAccepted(document.id);
-      message.success('Aceite registrado com sucesso! Seu comprovante foi gerado.');
-      setTimeout(() => generateCertificatePDF(record), 600);
+      message.success('Aceite registrado com sucesso! O comprovante está disponível em "Baixar comprovante (PDF)".');
     } finally {
       setConfirming(false);
     }
